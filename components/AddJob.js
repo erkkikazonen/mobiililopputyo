@@ -17,6 +17,7 @@ export default function AddJob() {
     date: "",
     hours: "",
     rate: "",
+    coordinates: null
   });
 
   const handleInputChange = (name, value) => {
@@ -26,19 +27,45 @@ export default function AddJob() {
     });
   };
 
+  const getCoordinates = async (address) => {
+    const apiKey = '66393fec72849673216152xesa800fb'; 
+    const url = `https://geocode.maps.co/search?q=${encodeURIComponent(address)}&api_key=${apiKey}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      if (data.length > 0) {
+        return {
+          latitude: data[0].lat,
+          longitude: data[0].lon
+        };
+      } else {
+        throw new Error('No results found');
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      Alert.alert('Geocoding Error', 'Unable to fetch location coordinates');
+      return null;
+    }
+  };
+
   const addJob = async () => {
+    const coordinates = await getCoordinates(job.location);
+    if (!coordinates) {
+      Alert.alert("Error", "Failed to get location coordinates. Please check the address and try again.");
+      return;
+    }
+
+    const newJob = { ...job, coordinates };
     try {
       const currentJobs = JSON.parse(await AsyncStorage.getItem("jobs")) || [];
-      const updatedJobs = [...currentJobs, job];
-      console.log("Saving jobs: ", updatedJobs);
+      const updatedJobs = [...currentJobs, newJob];
       await AsyncStorage.setItem("jobs", JSON.stringify(updatedJobs));
-      console.log("Job added successfully!");
       Alert.alert("Success", "Job added successfully!");
-      setJob({ name: "", location: "", date: "", hours: "", rate: "" });
+      setJob({ name: "", location: "", date: "", hours: "", rate: "", coordinates: null });
     } catch (error) {
       Alert.alert("Error", "Failed to add the job.");
     }
-    
   };
 
   return (
@@ -51,7 +78,7 @@ export default function AddJob() {
           style={styles.input}
         />
         <TextInput
-          placeholder="Location"
+          placeholder="Address and City"
           value={job.location}
           onChangeText={(text) => handleInputChange("location", text)}
           style={styles.input}
@@ -62,7 +89,6 @@ export default function AddJob() {
           onChangeText={(text) => handleInputChange("date", text)}
           style={styles.input}
         />
-
         <TextInput
           placeholder="Hours"
           keyboardType="numeric"

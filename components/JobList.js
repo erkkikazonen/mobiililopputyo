@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Button, Alert } from "react-native";
+import { View, Text, StyleSheet, FlatList, Button, Alert , Modal, TouchableOpacity } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
+import MapView, { Marker } from "react-native-maps";
 
 export default function JobList() {
   const [jobs, setJobs] = useState([]);
   const [totalSalary, setTotalSalary] = useState(0); 
+  const [modalVisible, setModalVisible] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
 
   useFocusEffect(
     React.useCallback(() => {
@@ -53,6 +56,15 @@ export default function JobList() {
     setTotalSalary(total.toFixed(2)); 
   };
 
+  const openMap = (job) => {
+    if (job.coordinates && job.coordinates.latitude && job.coordinates.longitude) {
+      setSelectedJob(job);
+      setModalVisible(true);
+    } else {
+      Alert.alert("Error", "No location coordinates available for this job.");
+    }
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -61,7 +73,9 @@ export default function JobList() {
         renderItem={({ item, index }) => (
           <View style={styles.item}>
             <Text style={styles.text}>Name: {item.name}</Text>
-            <Text style={styles.text}>Location: {item.location}</Text>
+            <TouchableOpacity onPress={() => openMap(item)}>
+              <Text style={styles.text}>Location: {item.location}</Text>
+            </TouchableOpacity>
             <Text style={styles.text}>Date: {item.date}</Text>
             <Text style={styles.text}>Hours: {item.hours}</Text>
             <Text style={styles.text}>Rate: {item.rate} €/hr</Text>
@@ -70,6 +84,38 @@ export default function JobList() {
           </View>
         )}
       />
+      {modalVisible && selectedJob && (
+        <Modal
+          animationType="slide"
+          transparent={false}
+          visible={modalVisible}
+          onRequestClose={() => {
+            Alert.alert("Modal has been closed.");
+            setModalVisible(!modalVisible);
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <MapView
+              style={{ flex: 1 }}
+              initialRegion={{
+                latitude: selectedJob.coordinates.latitude,
+                longitude: selectedJob.coordinates.longitude,
+                latitudeDelta: 0.0922,
+                longitudeDelta: 0.0421,
+              }}
+            >
+              <Marker
+                coordinate={{
+                  latitude: selectedJob.coordinates.latitude,
+                  longitude: selectedJob.coordinates.longitude
+                }}
+                title={selectedJob.name}
+              />
+            </MapView>
+            <Button title="Close Map" onPress={() => setModalVisible(false)} />
+          </View>
+        </Modal>
+      )}
       <View style={styles.totalContainer}>
         <Text style={styles.totalText}>Total Salary: {totalSalary} €</Text>
       </View>
