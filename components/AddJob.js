@@ -7,7 +7,10 @@ import {
   Alert,
   TouchableWithoutFeedback,
   Keyboard,
+  TouchableOpacity,
+  Text
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { database } from '../firebaseConfig';
 import { ref, push } from "firebase/database";
 
@@ -20,13 +23,21 @@ export default function AddJob() {
     rate: "",
     coordinates: null
   });
-
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [date, setDate] = useState(new Date());
 
   const handleInputChange = (name, value) => {
     setJob({
       ...job,
       [name]: value,
     });
+  };
+
+  const onChangeDate = (event, selectedDate) => {
+    const currentDate = selectedDate || date;
+    setShowDatePicker(false); // Close the date picker after selection
+    setDate(currentDate);
+    handleInputChange('date', currentDate.toISOString().split('T')[0]); // Update the date in the job object
   };
 
   const getCoordinates = async (address) => {
@@ -67,7 +78,7 @@ export default function AddJob() {
   };
 
   return (
-    <TouchableWithoutFeedback onPress={() => Keyboard.dismiss()}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <TextInput
           placeholder="Job Name"
@@ -81,12 +92,18 @@ export default function AddJob() {
           onChangeText={(text) => handleInputChange("location", text)}
           style={styles.input}
         />
-        <TextInput
-          placeholder="Date"
-          value={job.date}
-          onChangeText={(text) => handleInputChange("date", text)}
-          style={styles.input}
-        />
+        <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.input}>
+          <Text style={styles.dateText}>{job.date || "Select Date"}</Text>
+        </TouchableOpacity>
+        {showDatePicker && (
+          <DateTimePicker
+            testID="dateTimePicker"
+            value={date}
+            mode="date"
+            display="default"
+            onChange={onChangeDate}
+          />
+        )}
         <TextInput
           placeholder="Hours"
           keyboardType="numeric"
@@ -116,7 +133,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   input: {
-    width: "50%",
+    width: "80%",
     marginVertical: 10,
     padding: 10,
     borderWidth: 1,
