@@ -8,7 +8,8 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { database } from '../firebaseConfig';
+import { ref, push } from "firebase/database";
 
 export default function AddJob() {
   const [job, setJob] = useState({
@@ -19,6 +20,7 @@ export default function AddJob() {
     rate: "",
     coordinates: null
   });
+
 
   const handleInputChange = (name, value) => {
     setJob({
@@ -55,17 +57,13 @@ export default function AddJob() {
       Alert.alert("Error", "Failed to get location coordinates. Please check the address and try again.");
       return;
     }
-
     const newJob = { ...job, coordinates };
-    try {
-      const currentJobs = JSON.parse(await AsyncStorage.getItem("jobs")) || [];
-      const updatedJobs = [...currentJobs, newJob];
-      await AsyncStorage.setItem("jobs", JSON.stringify(updatedJobs));
-      Alert.alert("Success", "Job added successfully!");
-      setJob({ name: "", location: "", date: "", hours: "", rate: "", coordinates: null });
-    } catch (error) {
-      Alert.alert("Error", "Failed to add the job.");
-    }
+    await push(ref(database, 'jobs'), newJob)
+      .then(() => {
+        Alert.alert("Success", "Job added successfully!");
+        setJob({ name: "", location: "", date: "", hours: "", rate: "", coordinates: null });
+      })
+      .catch(error => Alert.alert("Error", error.message));
   };
 
   return (

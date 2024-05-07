@@ -1,60 +1,45 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, Button, Alert , Modal, TouchableOpacity } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "@react-navigation/native";
+import { View, Text, StyleSheet, FlatList, Button, Alert, Modal, TouchableOpacity } from "react-native";
+import { useFocusEffect } from '@react-navigation/native';
 import MapView, { Marker } from "react-native-maps";
+import { database } from '../firebaseConfig';
+import { ref, onValue, remove } from "firebase/database";
+
+const calculateDailyWage = (hours, rate) => parseFloat(hours) * parseFloat(rate);
+
+const calculateTotalSalary = (jobs) => {
+  return jobs.reduce((sum, job) => sum + calculateDailyWage(job.hours, job.rate), 0).toFixed(2);
+}
 
 export default function JobList() {
   const [jobs, setJobs] = useState([]);
-  const [totalSalary, setTotalSalary] = useState(0); 
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
 
   useFocusEffect(
     React.useCallback(() => {
-      loadJobs();
+      const jobsRef = ref(database, 'jobs');
+      const unsubscribe = onValue(jobsRef, snapshot => {
+        const data = snapshot.val();
+        const jobList = data ? Object.keys(data).map(key => ({ ...data[key], id: key })) : [];
+        setJobs(jobList);
+      });
+
+      return () => unsubscribe();
     }, [])
   );
 
-  useEffect(() => {
-    loadJobs();
-  }, []);
-
-  const loadJobs = async () => {
-    try {
-      const storedJobs = await AsyncStorage.getItem("jobs");
-      if (storedJobs) {
-        const parsedJobs = JSON.parse(storedJobs);
-        setJobs(parsedJobs);
-        calculateTotalSalary(parsedJobs); 
-      }
-    } catch (error) {
-      console.error("Failed to load jobs:", error);
-      Alert.alert("Error", "Failed to load jobs.");
-    }
-  };
-
   const deleteJob = async (index) => {
     try {
-      let updatedJobs = [...jobs];
-      updatedJobs.splice(index, 1);
-      await AsyncStorage.setItem("jobs", JSON.stringify(updatedJobs));
-      setJobs(updatedJobs);
-      calculateTotalSalary(updatedJobs);  
+      const jobToDelete = jobs[index];
+      const jobRef = ref(database, `jobs/${jobToDelete.id}`);
+      await remove(jobRef);
       Alert.alert("Success", "Job deleted successfully!");
     } catch (error) {
       Alert.alert("Error", "Failed to delete the job.");
     }
   };
 
-  const calculateDailyWage = (hours, rate) => {
-    return parseFloat(hours) * parseFloat(rate);
-  };
-
-  const calculateTotalSalary = (jobs) => {
-    const total = jobs.reduce((sum, job) => sum + calculateDailyWage(job.hours, job.rate), 0);
-    setTotalSalary(total.toFixed(2)); 
-  };
 
   const openMap = (job) => {
     if (job.coordinates && job.coordinates.latitude && job.coordinates.longitude) {
@@ -117,7 +102,7 @@ export default function JobList() {
         </Modal>
       )}
       <View style={styles.totalContainer}>
-        <Text style={styles.totalText}>Total Salary: {totalSalary} €</Text>
+        <Text style={styles.totalText}>Total Salary: {calculateTotalSalary(jobs)} €</Text>
       </View>
     </View>
   );
@@ -145,3 +130,4 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
+
